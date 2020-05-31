@@ -1,23 +1,69 @@
-;; -*- lexical-binding: t; -*-
+;;; org-zk --- Opinionated zettelkasten workflow in org-mode
 
-(require 'setup-zettel-common)
-(require 'setup-zettel-gather)
+;; Copyright (c) 2020 Simon Bugge Siggaard
 
-(defun zettel--ivy-notes-list (str pred _)
+;; Author: Simon Bugge Siggaard <simsig@gmail.com>
+;; Maintainer: Simon Bugge Siggaard <simsig@gmail.com>
+;; Created: 28 May 2020
+;; Version: 0.1
+;; Keywords: org mode zettelkasten
+;; URL: https://github.com/buggaarde/org-zk
+;; Package-Requires: ((ivy "0.13.0"))
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs; see the file COPYING.  If not, write to the
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
+
+
+;;; Commentary:
+
+
+;;; Code:
+
+;; Customizable
+
+(defgroup org-zk nil
+  "Zettelkasten in org-mode"
+  :prefix "org-zk-"
+  :link '(url-link :tag "github" "https://github.com/buggaarde/org-zk"))
+
+(defcustom org-zk-directory (expand-filename "~/org-zk/")
+  "All zettels are in this directory."
+  :type 'directory
+  :group 'org-zk)
+
+(require 'org-zk-common)
+(require 'org-zk-db)
+(require 'org-zk-gather)
+(require 'ivy)
+
+(defun org-zk--ivy-notes-list (str pred _)
   "Generate the ivy notes list."
-  (let* ((deft-files (deft-current-files))
-		 (file-names deft-files)
-		 (titles (mapcar #'deft-file-title deft-files)))
-	(cl-mapcar (lambda (fn ti) (propertize ti 'file-name fn))
-			   file-names titles)))
+  (mapcar (lambda (title-filename)
+			(propertize (nth 0 title-filename)
+						'file-name (nth 1 title-filename)))
+		  (org-zk-db--all-notes-filenames)))
 
-(defun zettel--insert-link-in-file (filename path description)
+(defun org-zk--insert-link-in-file (filename path description)
   "Insert link to PATH with DESCRIPTION in FILENAME.
 
 The link is inserted under the `References' headline by appending the link
 to the headline content in the org-element AST."
   (with-temp-file filename
-	(let* ((ast (zettel--org-element-parse-file filename))
+	(let* ((ast (org-zk--org-element-parse-file filename))
 		   (references
 			(org-element-map ast 'headline
 			  (lambda (h)
@@ -32,49 +78,49 @@ to the headline content in the org-element AST."
 							  ,description) "\n")))
 		(insert (org-element-interpret-data ast))))))
 
-(defun zettel--insert-backlink (&optional link-prefix backlink-prefix ivy-prompt-text)
+(defun org-zk--insert-backlink (&optional link-prefix backlink-prefix ivy-prompt-text)
   "Insert link to note, and also insert a backnote to the current note.
 
 Optionally, specify a LINK-PREFIX, a BACKLINK-PREFIX and an IVY-PROMPT-TEXT."
   (let* ((path (file-name-nondirectory (buffer-file-name)))
 		 (desc (concat backlink-prefix
-					   (or (zettel--title-of-note-in-current-buffer) path)))
+					   (or (org-zk--title-of-note-in-current-buffer) path)))
 		 (prompt (or ivy-prompt-text "Link with: ")))
-	(ivy-read prompt #'zettel--ivy-notes-list
+	(ivy-read prompt #'org-zk--ivy-notes-list
 			  :action (lambda (title)
 						(let* ((full-path (get-text-property 0 'file-name title))
 							   (file-name (file-name-nondirectory full-path)))
-						  (zettel--insert-link-in-file full-path path desc)
+						  (org-zk--insert-link-in-file full-path path desc)
 						  (insert (concat
 								   "[[file:" file-name "][" link-prefix title "]]")))))))
 
-(defun zettel-insert-org-link ()
+(defun org-zk-insert-org-link ()
   "Prompt for a note and insert a link to that file."
   (interactive)
-  (ivy-read "Insert link: " #'zettel--ivy-notes-list
+  (ivy-read "Insert link: " #'org-zk--ivy-notes-list
 			:action (lambda (title)
 					  (let ((file-name
 							 (file-name-nondirectory (get-text-property 0 'file-name title))))
 						(insert (concat "[[file:" file-name "][" title "]]"))))
-			:caller 'zettel-insert-org-link))
+			:caller 'org-zk-insert-org-link))
 
-(defun zettel-insert-backlink ()
+(defun org-zk-insert-backlink ()
   "Select note from list, and insert link/backlink to/from that note."
   (interactive)
-  (zettel--insert-backlink))
+  (org-zk--insert-backlink))
 
-(defun zettel-insert-folge-backlink ()
+(defun org-zk-insert-folge-backlink ()
   "Select note from list, and insert link/backlink to/from that note.
 
 Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
-  (zettel--insert-backlink "<:" ">:" "Follow note: "))
+  (org-zk--insert-backlink "<:" ">:" "Follow note: "))
 
-(global-set-key (kbd "C-c z d") #'deft)
-(global-set-key (kbd "C-c z l") #'zettel-insert-org-link)
-(global-set-key (kbd "C-c z b") #'zettel-insert-backlink)
-(global-set-key (kbd "C-c z f") #'zettel-insert-folge-backlink)
-(global-set-key (kbd "C-c z g") #'zettel-gather-notes-beginning-here)
-(global-set-key (kbd "C-c z r") #'deft-refresh)
 
-(provide 'setup-zettel)
+(provide 'org-zk)
+
+;; Local Variables:
+;; lexical-binding: t
+;; End:
+
+;;; org-zk.el ends here
