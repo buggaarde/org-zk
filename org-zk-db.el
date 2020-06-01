@@ -1,4 +1,4 @@
-;;; org-zk-db --- The database backend for org-zk
+;;; org-zk-db --- The database backend for org-zk -*- lexical-binding: t; -*-
 
 ;; Copyright (c) 2020 Simon Bugge Siggaard
 
@@ -86,9 +86,5 @@
 			   `([,this-id ,title ,filename])))))
 
 (provide 'org-zk-db)
-
-;; Local Variables:
-;; lexical-binding: t
-;; End:
 
 ;;; org-zk-db.el ends here

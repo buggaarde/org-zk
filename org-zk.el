@@ -1,4 +1,4 @@
-;;; org-zk --- Opinionated zettelkasten workflow in org-mode
+;;; org-zk --- Opinionated zettelkasten workflow in org-mode -*- lexical-binding: t; -*-
 
 ;; Copyright (c) 2020 Simon Bugge Siggaard
 
@@ -40,7 +40,7 @@
   :prefix "org-zk-"
   :link '(url-link :tag "github" "https://github.com/buggaarde/org-zk"))
 
-(defcustom org-zk-directory (expand-filename "~/org-zk/")
+(defcustom org-zk-directory (expand-file-name "~/org-zk/")
   "All zettels are in this directory."
   :type 'directory
   :group 'org-zk)
@@ -118,9 +118,5 @@ Link descriptions are prefixed by `<:' and `>:' respectively"
 
 
 (provide 'org-zk)
-
-;; Local Variables:
-;; lexical-binding: t
-;; End:
 
 ;;; org-zk.el ends here
