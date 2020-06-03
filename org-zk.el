@@ -40,7 +40,7 @@
   :prefix "org-zk-"
   :link '(url-link :tag "github" "https://github.com/buggaarde/org-zk"))
 
-(defcustom org-zk-directory (expand-filename "~/org-zk/")
+(defcustom org-zk-directory (expand-file-name "~/org-zk/")
   "All zettels are in this directory."
   :type 'directory
   :group 'org-zk)
