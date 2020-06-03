@@ -1,4 +1,4 @@
-;;; org-zk --- Opinionated zettelkasten workflow in org-mode
+;;; org-zk --- Opinionated zettelkasten workflow in org-mode -*- lexical-binding: t; -*-
 
 ;; Copyright (c) 2020 Simon Bugge Siggaard
 
@@ -48,6 +48,7 @@
 (require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
+(require 'org-zk-notes)
 (require 'ivy)
 
 (defun org-zk--ivy-notes-list (str pred _)
@@ -118,9 +119,5 @@ Link descriptions are prefixed by `<:' and `>:' respectively"
 
 
 (provide 'org-zk)
-
-;; Local Variables:
-;; lexical-binding: t
-;; End:
 
 ;;; org-zk.el ends here
