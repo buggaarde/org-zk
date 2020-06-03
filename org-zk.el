@@ -8,7 +8,7 @@
 ;; Version: 0.1
 ;; Keywords: org mode zettelkasten
 ;; URL: https://github.com/buggaarde/org-zk
-;; Package-Requires: ((ivy "0.13.0"))
+;; Package-Requires: ((emacs "25") (ivy "0.13.0") (emacsql "3.0.0") (emacsql-sqlite "1.0.0"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -33,7 +33,7 @@
 
 ;;; Code:
 
-;; Customizable
+;; Customizables
 
 (defgroup org-zk nil
   "Zettelkasten in org-mode"
@@ -45,10 +45,17 @@
   :type 'directory
   :group 'org-zk)
 
+
+;; Declarations
+(declare-function org-zk-db--all-notes-filenames "org-zk-db")
+(declare-function org-zk--org-element-parse-file "org-zk-common")
+(declare-function org-zk--title-of-note-in-current-buffer "org-zk-common")
+
+
+(require 'ivy)
 (require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
-(require 'ivy)
 
 (defun org-zk--ivy-notes-list (str pred _)
   "Generate the ivy notes list."

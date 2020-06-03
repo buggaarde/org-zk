@@ -7,7 +7,7 @@
 ;; Created: 30 May 2020
 ;; Version: 0.1
 ;; Keywords: org mode zettelkasten
-;; URL: https://github.com/buggaarde/org-zk-db
+;; URL: https://github.com/buggaarde/org-zk
 ;; Package-Requires: ((emacsql "3.0.0") (emacsql-sqlite "1.0.0"))
 
 
@@ -71,11 +71,6 @@
 				  :from org-zk-db--notes
 				  :where (= filename $r1)]
 				 fname))))
-
-;; (defun org-zk-db--number-of-notes (db)
-;;   "Return the number of notes in DB."
-;;   (car (car (emacsql db [:select (funcall count id)
-;; 						 :from org-zk-db--notes]))))
 
 (defun org-zk-db--add-note (title filename)
   "Add note with TITLE and FILENAME to the database."
