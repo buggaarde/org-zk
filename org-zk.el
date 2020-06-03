@@ -56,6 +56,8 @@
 (require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
+(require 'org-zk-notes)
+(require 'ivy)
 
 (defun org-zk--ivy-notes-list (str pred _)
   "Generate the ivy notes list."
