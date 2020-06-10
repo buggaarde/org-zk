@@ -79,6 +79,12 @@ Excluded prefixes are stored in `org-zk-excluded-prefixes'."
 (defun org-zk--link-description (link)
   (car (org-element-contents link)))
 
+(defun org-zk--link-path (link)
+  (org-element-property :path link))
+
+(defun org-zk--note-parent (note)
+  (get-text-property 0 :parent note))
+
 (defun org-zk--all-non-excluded-links-in-file (filename)
   "Return a list of all non-exluded links in FILENAME.
 
@@ -91,18 +97,28 @@ Only links from the `References' headline are parsed."
 			  (refs (org-zk--org-headline-by-name ast "References"))
 			  (links (org-element-map refs 'link #'identity))
 			  (children (seq-remove
-						 #'org-zk--link-description-has-excluded-prefix?
+						 (lambda (l)
+						   (when-let
+							   ((path (org-zk--link-path l))
+								(parent (org-zk--note-parent filename)))
+							 (message path)
+							 (message parent)
+							 (message "\n")
+							 (string=
+							  (file-name-nondirectory path)
+							  (file-name-nondirectory parent))))
 						 links))
+			  (children (seq-remove
+						 #'org-zk--link-description-has-excluded-prefix?
+						 children))
 			  (child-paths (cl-loop for c in children
 									collect (org-element-property :path c)))
 			  (num-children (length children))
 			  (parent-level (get-text-property 0 :level filename)))
 	(if (= num-children 1)
-		`(,(propertize (car child-paths) :type :singular :level parent-level))
+		`(,(propertize (car child-paths) :type :singular :level parent-level :parent filename))
 	  (cl-loop for c in child-paths
-			   collect (propertize c :type :branch :level (1+ parent-level))))))
-
-
+			   collect (propertize c :type :branch :level (1+ parent-level) :parent filename)))))
 
 (defun org-zk--depth-first-traversal-link-filenames ()
   "Traverse links from note in depth-first manner, and return list of filenames.

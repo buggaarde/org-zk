@@ -94,7 +94,9 @@ to the headline content in the org-element AST."
   "Insert link to note, and also insert a backnote to the current note.
 
 Optionally, specify a LINK-TYPE, a BACKLINK-TYPE and an IVY-PROMPT-TEXT."
-  (let* ((this-path (file-name-nondirectory (buffer-file-name)))
+  (let* ((this-path (concat
+					 org-zk-directory
+					 (file-name-nondirectory (buffer-file-name))))
 		 (link-prefix (org-zk--link-prefix-from-link-type link-type))
 		 (backlink-prefix (org-zk--link-prefix-from-link-type backlink-type))
 		 (desc (concat backlink-prefix
