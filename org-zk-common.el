@@ -27,7 +27,7 @@ See also: org-zk--title-of-note-in-current-buffer."
 	(progn
 	  (org-mode)
 	  (insert-file-contents filename)
-	  (zettel--title-of-note-in-current-buffer))))
+	  (org-zk--title-of-note-in-current-buffer))))
 
 (defun org-zk--org-headline-by-name (ast name)
   "Return first encountered headline with NAME from AST."
