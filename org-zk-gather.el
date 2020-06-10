@@ -26,7 +26,7 @@ is inserted as a radio-target, in preparation for potential duplicate notes."
 		   (level (get-text-property 0 :level filename))
 		   (visited? (get-text-property 0 :visited? filename))
 		   (ast (org-zk--org-element-parse-file filename))
-		   (notes (org-zk--org-extracted-headline-by-name ast "Note"))
+		   (notes (org-zk--org-headline-by-name ast "Note"))
 		   (note (org-element-map notes 'section #'identity nil t))
 		   (note (when note (org-element-extract-element note))))
 	  (if visited?
@@ -58,7 +58,7 @@ is inserted as a radio-target, in preparation for potential duplicate notes."
 (defun org-zk--all-links-in-file (filename)
   "Return all links in FILENAME under the `References' headline."
   (let* ((ast (org-zk--org-element-parse-file filename))
-		 (refs (org-zk--org-extracted-headline-by-name ast "References"))
+		 (refs (org-zk--org-headline-by-name ast "References"))
 		 (links (org-element-map refs 'link #'identity)))
 	(mapcar #'org-element-extract-element links)))
 
@@ -88,7 +88,7 @@ of FILENAME.
 
 Only links from the `References' headline are parsed."
   (when-let* ((ast (org-zk--org-element-parse-file filename))
-			  (refs (org-zk--org-extracted-headline-by-name ast "References"))
+			  (refs (org-zk--org-headline-by-name ast "References"))
 			  (links (org-element-map refs 'link #'identity))
 			  (children (seq-remove
 						 #'org-zk--link-description-has-excluded-prefix?
