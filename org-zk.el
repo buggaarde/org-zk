@@ -40,19 +40,18 @@
   :prefix "org-zk-"
   :link '(url-link :tag "github" "https://github.com/buggaarde/org-zk"))
 
-(defcustom org-zk-directory (expand-file-name "~/org-zk/")
-  "All zettels are in this directory."
-  :type 'directory
-  :group 'org-zk)
+(eval-when-compile
+  (defcustom org-zk-directory (expand-file-name "~/org-zk/")
+	"All zettels are in this directory."
+	:type 'directory
+	:group 'org-zk)
 
+  (defcustom org-zk-link-type-prefix-alist
+	'(("<:" . :folge-prev) (">:" . :folge-next))
+	"The link description prefix associated with each link type."
+	:type '(alist :key-type string :value-type keyword)
+	:group 'org-zk))
 
-;; Declarations
-(declare-function org-zk-db--all-notes-filenames "org-zk-db")
-(declare-function org-zk--org-element-parse-file "org-zk-common")
-(declare-function org-zk--title-of-note-in-current-buffer "org-zk-common")
-
-
-(require 'ivy)
 (require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
@@ -87,31 +86,27 @@ to the headline content in the org-element AST."
 							  ,description) "\n")))
 		(insert (org-element-interpret-data ast))))))
 
-(defun org-zk--insert-backlink (&optional link-prefix backlink-prefix ivy-prompt-text)
+(defun org-zk--link-prefix-from-link-type (link-type)
+  "Return link prefix if LINK-TYPE exists, otherwise return nil."
+  (car (rassq link-type org-zk-link-type-prefix-alist)))
+
+(defun org-zk--insert-backlink (&optional link-type backlink-type ivy-prompt-text)
   "Insert link to note, and also insert a backnote to the current note.
 
-Optionally, specify a LINK-PREFIX, a BACKLINK-PREFIX and an IVY-PROMPT-TEXT."
-  (let* ((path (file-name-nondirectory (buffer-file-name)))
+Optionally, specify a LINK-TYPE, a BACKLINK-TYPE and an IVY-PROMPT-TEXT."
+  (let* ((this-path (file-name-nondirectory (buffer-file-name)))
+		 (link-prefix (org-zk--link-prefix-from-link-type link-type))
+		 (backlink-prefix (org-zk--link-prefix-from-link-type backlink-type))
 		 (desc (concat backlink-prefix
-					   (or (org-zk--title-of-note-in-current-buffer) path)))
+					   (or (org-zk--title-of-note-in-current-buffer) this-path)))
 		 (prompt (or ivy-prompt-text "Link with: ")))
 	(ivy-read prompt #'org-zk--ivy-notes-list
 			  :action (lambda (title)
-						(let* ((full-path (get-text-property 0 'file-name title))
-							   (file-name (file-name-nondirectory full-path)))
-						  (org-zk--insert-link-in-file full-path path desc)
+						(let* ((link-path (get-text-property 0 'file-name title))
+							   (file-name (file-name-nondirectory link-path)))
+						  (org-zk--insert-link-in-file link-path this-path desc)
 						  (insert (concat
 								   "[[file:" file-name "][" link-prefix title "]]")))))))
-
-(defun org-zk-insert-org-link ()
-  "Prompt for a note and insert a link to that file."
-  (interactive)
-  (ivy-read "Insert link: " #'org-zk--ivy-notes-list
-			:action (lambda (title)
-					  (let ((file-name
-							 (file-name-nondirectory (get-text-property 0 'file-name title))))
-						(insert (concat "[[file:" file-name "][" title "]]"))))
-			:caller 'org-zk-insert-org-link))
 
 (defun org-zk-insert-backlink ()
   "Select note from list, and insert link/backlink to/from that note."
@@ -123,8 +118,55 @@ Optionally, specify a LINK-PREFIX, a BACKLINK-PREFIX and an IVY-PROMPT-TEXT."
 
 Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
-  (org-zk--insert-backlink "<:" ">:" "Follow note: "))
+  (org-zk--insert-backlink :folge-prev :folge-next "Follow note: "))
 
+;; ;;;;; this is for adding existing files to the database
+;; (require 'cl-lib)
+
+;; (defun add-links-to-db (filename)
+;;   (let* ((ast (org-zk--org-element-parse-file filename))
+;; 		 (title (org-zk--title-of-note-in-file filename))
+;; 		 (link-paths (org-element-map ast 'link
+;; 					   (lambda (l)
+;; 						 (when (string= (org-element-property :type l) "file")
+;; 						   (org-element-property :path l)))))
+;; 		 (link-descriptions (org-element-map ast 'link
+;; 							  (lambda (l)
+;; 								(when (string= (org-element-property :type l) "file")
+;; 								  (car (org-element-contents l)))))))
+;; 	(message (format "%s" link-paths))
+;; 	(message (format "%s" link-descriptions))
+
+	;; Add all links between notes
+	;; (cl-mapc
+	;;  (lambda (p d)
+	;;    (let ((filename-full (concat
+	;; 						 org-zk-directory
+	;; 						 (file-name-nondirectory filename)))
+	;; 		 (path-full (concat
+	;; 					 org-zk-directory
+	;; 					 (file-name-nondirectory p)))
+	;; 		 (link-type :default)
+	;; 		 (link-type (dolist
+	;; 						(prefix-type org-zk--link-type-prefix-alist ltype)
+	;; 					  (let ((prefix (car prefix-type))
+	;; 							(type (cdr prefix-type))))
+	;; 					  (when (string= (string-prefix-p d) prefix)
+	;; 						(setq ltype type)))))
+  	;; 	 (org-zk-db--add-link path-full filename-full link-type)))
+	;;  link-paths link-descriptions)
+	;; (message "\n")))
+
+;; (defun add-existing-notes-to-database ()
+;;   (let* ((all-files (cdr (cdr (directory-files org-zk-directory t))))
+;; 		 (all-files-full (mapcar
+;; 						  (lambda (f) (concat org-zk-directory (file-name-nondirectory f)))
+;; 						  all-files))
+;; 		 (all-titles (mapcar #'org-zk--title-of-note-in-file all-files-full)))
+;; 	(cl-mapc #'org-zk-db--add-note all-titles all-files-full)
+;; 	(mapc #'add-links-to-db all-files)))
+
+;; (add-existing-notes-to-database)
 
 (provide 'org-zk)
 
