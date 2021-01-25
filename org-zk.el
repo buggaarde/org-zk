@@ -58,22 +58,6 @@
 (require 'org-zk-notes)
 (require 'ivy)
 
-(defun org-zk--all-notes-filenames ()
-  "Return a list of tuples with (note-title note-filename) as contents.
-
-This function has the same output structure as org-zk-db--all-notes-filenames."
-  (let* ((filenames (seq-filter #'file-regular-p (directory-files org-zk-directory t)))
-		 (titles (mapcar #'org-zk--title-of-note-in-file filenames))
-		 (title-filename (cl-mapcar (lambda (t f) `(,t ,f)) titles filenames)))
-	title-filename))
-
-(defun org-zk--ivy-notes-list (str pred _)
-  "Generate the ivy notes list."
-  (mapcar (lambda (title-filename)
-			(propertize (nth 0 title-filename)
-						'file-name (nth 1 title-filename)))
-		  (org-zk--all-notes-filenames)))
-
 (defun org-zk--insert-link-in-file (filename path description)
   "Insert link to PATH with DESCRIPTION in FILENAME.
 

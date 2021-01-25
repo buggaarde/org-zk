@@ -12,6 +12,8 @@
 
 ;;; Code:
 
+(require 'ivy)
+
 (defvar org-zk-directory)
 
 (defun org-zk-new-note ()
@@ -25,6 +27,29 @@
 	(let ((inhibit-message t))
 	  (forward-line (1- 4)))))
 
+(defun org-zk--all-notes-filenames ()
+  "Return a list of tuples with (note-title note-filename) as contents.
+
+This function has the same output structure as org-zk-db--all-notes-filenames."
+  (let* ((filenames (seq-filter #'file-regular-p (directory-files org-zk-directory t)))
+		 (titles (mapcar #'org-zk--title-of-note-in-file filenames))
+		 (title-filename (cl-mapcar (lambda (t f) `(,t ,f)) titles filenames)))
+	title-filename))
+
+(defun org-zk--ivy-notes-list (str pred _)
+  "Generate the ivy notes list."
+  (mapcar (lambda (title-filename)
+			(propertize (nth 0 title-filename)
+						'file-name (nth 1 title-filename)))
+		  (org-zk--all-notes-filenames)))
+
+(defun org-zk-open-note ()
+  "Open an existing zettel in current buffer."
+  (interactive)
+  (ivy-read "Open note: " #'org-zk--ivy-notes-list
+			:action (lambda (title)
+					  (let ((path (get-text-property 0 'file-name title)))
+						(find-file path)))))
 
 (provide 'org-zk-notes)
 
