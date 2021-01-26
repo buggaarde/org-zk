@@ -55,17 +55,65 @@
 (require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
-(require 'org-zk-notes)
 (require 'ivy)
 
-(defun org-zk--insert-link-in-file (filename path description)
-  "Insert link to PATH with DESCRIPTION in FILENAME.
+;; Opening and creating notes
 
-The link is inserted under the `References' headline by appending the link
-to the headline content in the org-element AST."
-  (with-temp-file filename
-	(let* ((ast (org-zk--org-element-parse-file filename))
-		   (references
+(defun org-zk--new-note (title)
+  "Create a new zettel and open file in buffer.
+Returns the full path to the newly created file.
+
+TITLE will be the title of the note."
+  (let ((fname
+		 (concat org-zk-directory (format-time-string "%Y%m%d%H%M%S") ".org")))
+	(find-file fname)
+	(insert
+	 (format
+	  "#+title: %s\n#+startup: showall\n** Note\n\n\n** References\n\n** Sources\n\n"
+	  title))
+	(goto-char (point-min))
+	(let ((inhibit-message t))
+	  (forward-line (1- 4)))
+	fname))
+
+(defun org-zk-new-note ()
+  "Create a new zettel and open file in buffer."
+  (interactive)
+  (org-zk--new-note ""))
+
+(defun org-zk--all-notes-filenames ()
+  "Return a list of tuples with (note-title note-filename) as contents.
+
+This function has the same output structure as org-zk-db--all-notes-filenames."
+  (let* ((filenames (seq-filter #'file-regular-p (directory-files org-zk-directory t)))
+		 (titles (mapcar #'org-zk--title-of-note-in-file filenames))
+		 (title-filename (cl-mapcar (lambda (t f) `(,t ,f)) titles filenames)))
+	title-filename))
+
+(defun org-zk--ivy-notes-list (str pred _)
+  "Generate the ivy notes list."
+  (mapcar (lambda (title-filename)
+			(propertize (nth 0 title-filename)
+						'file-name (nth 1 title-filename)))
+		  (org-zk--all-notes-filenames)))
+
+(defun org-zk-open-note ()
+  "Open an existing zettel in current buffer."
+  (interactive)
+  (ivy-read "Open note: " #'org-zk--ivy-notes-list
+			:action (lambda (title)
+					  (let ((path (get-text-property 0 'file-name title)))
+						(find-file path)))))
+
+;; Links between notes
+
+(defun org-zk--insert-link-in-ast (ast path description)
+  "Provided an `org-mode' AST, insert link to PATH with DESCRIPTION.
+Return the modified AST.
+
+The link is inserted under the `References' headline by appending
+the link to the headline content in the org-element AST."
+  (let* ((references
 			(org-element-map ast 'headline
 			  (lambda (h)
 				(when (string= (org-element-property :raw-value h) "References")
@@ -77,7 +125,54 @@ to the headline content in the org-element AST."
 		   el (append el
 					  `((link (:type "file" :path ,path :format bracket)
 							  ,description) "\n")))
-		(insert (org-element-interpret-data ast))))))
+		ast)))
+
+(defun org-zk--insert-link-in-buffer (filename path description)
+  "Insert link to PATH with DESCRIPTION in buffer containing contents from FILENAME.
+
+The link is inserted under the `References' headline by appending
+the link to the headline content in the org-element AST."
+  (with-current-buffer (find-buffer-visiting filename)
+	(let ((ast (org-zk--insert-link-in-ast
+				(org-element-parse-buffer) path description))
+		  (tmp-buffer (generate-new-buffer " *org-zk-tmp-buffer*")))
+	  (save-excursion
+		(with-current-buffer tmp-buffer
+		  (insert (org-element-interpret-data ast)))
+		(replace-buffer-contents tmp-buffer)
+		(kill-buffer tmp-buffer)))))
+
+
+(defun org-zk--insert-link-in-file (filename path description)
+  "Insert link to PATH with DESCRIPTION in FILENAME.
+
+The link is inserted under the `References' headline by appending the link
+to the headline content in the org-element AST."
+  (with-temp-file filename
+	(let ((ast (org-zk--insert-link-in-ast
+				(org-zk--org-element-parse-file filename) path description)))
+	  (insert (org-element-interpret-data ast)))))
+
+;; (defun org-zk--insert-link-in-file (filename path description)
+;;   "Insert link to PATH with DESCRIPTION in FILENAME.
+
+;; The link is inserted under the `References' headline by appending the link
+;; to the headline content in the org-element AST."
+;;   (with-temp-file filename
+;; 	(let* ((ast (org-zk--org-element-parse-file filename))
+;; 		   (references
+;; 			(org-element-map ast 'headline
+;; 			  (lambda (h)
+;; 				(when (string= (org-element-property :raw-value h) "References")
+;; 				  h))
+;; 			  nil t))
+;; 		   (paragraph (nth 2 (nth 2 references))))
+;; 	  (let ((el (or paragraph references)))
+;; 		(org-element-set-element
+;; 		   el (append el
+;; 					  `((link (:type "file" :path ,path :format bracket)
+;; 							  ,description) "\n")))
+;; 		(insert (org-element-interpret-data ast))))))
 
 (defun org-zk--link-prefix-from-link-type (link-type)
   "Return link prefix if LINK-TYPE exists, otherwise return nil."
@@ -114,6 +209,22 @@ Optionally, specify a LINK-TYPE, a BACKLINK-TYPE and an IVY-PROMPT-TEXT."
 Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
   (org-zk--insert-backlink :folge-prev :folge-next "Follow note: "))
+
+;; Index files
+
+(defun org-zk-create-new-index (subject)
+  "Create a new index note for a new subject and link to the main index.
+
+SUBJECT is the name of the subject."
+  (interactive "sCreate index for which subject? ")
+  (let* ((this-index-name (format "Index - %s" subject))
+		 (main-index-file (concat org-zk-directory "index.org"))
+		 (this-index-file (org-zk--new-note this-index-name)))
+	(org-zk--insert-link-in-file-or-buffer
+	 main-index-file
+	 this-index-file
+	 (format "Index - %s" subject))
+	))
 
 ;; ;;;;; this is for adding existing files to the database
 ;; (require 'cl-lib)
