@@ -127,12 +127,12 @@ the link to the headline content in the org-element AST."
 							  ,description) "\n")))
 		ast)))
 
-(defun org-zk--insert-link-in-buffer (filename path description)
+(defun org-zk--insert-link-in-buffer (buffer path description)
   "Insert link to PATH with DESCRIPTION in buffer containing contents from FILENAME.
 
 The link is inserted under the `References' headline by appending
 the link to the headline content in the org-element AST."
-  (with-current-buffer (find-buffer-visiting filename)
+  (with-current-buffer buffer
 	(let ((ast (org-zk--insert-link-in-ast
 				(org-element-parse-buffer) path description))
 		  (tmp-buffer (generate-new-buffer " *org-zk-tmp-buffer*")))
@@ -141,7 +141,6 @@ the link to the headline content in the org-element AST."
 		  (insert (org-element-interpret-data ast)))
 		(replace-buffer-contents tmp-buffer)
 		(kill-buffer tmp-buffer)))))
-
 
 (defun org-zk--insert-link-in-file (filename path description)
   "Insert link to PATH with DESCRIPTION in FILENAME.
@@ -153,26 +152,15 @@ to the headline content in the org-element AST."
 				(org-zk--org-element-parse-file filename) path description)))
 	  (insert (org-element-interpret-data ast)))))
 
-;; (defun org-zk--insert-link-in-file (filename path description)
-;;   "Insert link to PATH with DESCRIPTION in FILENAME.
+(defun org-zk--insert-link-in-file-or-buffer (filename path description)
+  "Insert link to PATH with DESCRIPTION in FILENAME, whether the file is open in a buffer or not.
 
-;; The link is inserted under the `References' headline by appending the link
-;; to the headline content in the org-element AST."
-;;   (with-temp-file filename
-;; 	(let* ((ast (org-zk--org-element-parse-file filename))
-;; 		   (references
-;; 			(org-element-map ast 'headline
-;; 			  (lambda (h)
-;; 				(when (string= (org-element-property :raw-value h) "References")
-;; 				  h))
-;; 			  nil t))
-;; 		   (paragraph (nth 2 (nth 2 references))))
-;; 	  (let ((el (or paragraph references)))
-;; 		(org-element-set-element
-;; 		   el (append el
-;; 					  `((link (:type "file" :path ,path :format bracket)
-;; 							  ,description) "\n")))
-;; 		(insert (org-element-interpret-data ast))))))
+The link is inserted under the `References' headline by appending
+the link to the headline content in the org-element AST."
+  (let ((buffer (find-buffer-visiting filename)))
+	(if buffer
+		(org-zk--insert-link-in-buffer buffer path description)
+	  (org-zk--insert-link-in-file filename path description))))
 
 (defun org-zk--link-prefix-from-link-type (link-type)
   "Return link prefix if LINK-TYPE exists, otherwise return nil."
