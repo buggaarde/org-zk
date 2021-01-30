@@ -62,6 +62,46 @@
 (require 'org-zk-gather)
 (require 'ivy)
 
+;; -- Helpers for note content
+
+(defun org-zk--org-element-parse-file (filename)
+  "Open FILENAME in temp buffer, and call org-element-parse-buffer.
+Return the resulting org-element AST."
+  (with-temp-buffer
+	(progn
+	  (org-mode)
+	  (insert-file-contents filename)
+	  (org-element-parse-buffer))))
+
+(defun org-zk--title-of-note-in-current-buffer ()
+  "Return the value of the #+TITLE in current buffer.
+The function returns the value of the first encountered keyword value, and therefore assumes that #+TITLE is the first keyword in the buffer."
+  (let ((ast (org-element-parse-buffer)))
+	(org-element-map ast 'keyword
+	  (lambda (k) (org-element-property :value k))
+	  nil t)))
+
+(defun org-zk--title-of-note-in-file (filename)
+  "Return the #+TITLE of the note in FILENAME.
+Opens FILENAME in temp buffer, and call org-zk--title-of-note-in-current-buffer.
+The function returns the value of the first encountered keyword value, and therefore assumes that #+TITLE is the first keyword in the file.
+
+See also: org-zk--title-of-note-in-current-buffer."
+  (with-temp-buffer
+	(progn
+	  (org-mode)
+	  (insert-file-contents filename)
+	  (org-zk--title-of-note-in-current-buffer))))
+
+(defun org-zk--org-headline-by-name (ast name)
+  "Return first encountered headline with NAME from AST."
+  (org-element-map ast 'headline
+	(lambda (h)
+	  (when (string= (org-element-property :raw-value h) name)
+		h))
+	nil t))
+
+
 ;; -- Opening and creating notes
 
 (defun org-zk--create-new-note (title)
@@ -79,7 +119,7 @@ Return the file name of the zettel."
 	file-name))
 
 (defun org-zk--create-new-note-and-open (title)
-  "Create a new zettel with TITLE and open the file in buffer."
+  "Create a new zettel with TITLE and open the file in buffer, with point at the beginning of the **Note section."
   (let ((file-name (org-zk--create-new-note title)))
 	(find-file file-name)
 	(goto-char (point-min))
@@ -92,7 +132,7 @@ Return the file name of the zettel."
   (org-zk--create-new-note title))
 
 (defun org-zk-create-empty-note-and-open ()
-  "Create an empty zettel and open file in buffer."
+  "Create an empty zettel and open file in buffer with point at the beginning of the **Note section."
   (interactive)
   (org-zk--create-new-note-and-open ""))
 
@@ -122,6 +162,7 @@ Return the file name of the zettel."
   "Delete all notes that contain no titles."
   (interactive)
   (org-zk--prune-notes-without-titles))
+
 
 ;; -- Ivy helpers
 
@@ -277,6 +318,7 @@ Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
   (org-zk--add-backlink-to-references :folge-prev :folge-next "Follow note: "))
 
+
 ;; Index files
 
 (defun org-zk-create-new-index (subject)
@@ -298,22 +340,6 @@ SUBJECT is the name of the subject."
 	 main-index-file
 	 "Index")
 	(find-file this-index-file)))
-
-;; (defun org-zk--create-note-and-add-link (note-title)
-;;   (let ((file-name (org-zk--new-note note-title)))
-;; 	(org-zk--add-backlink-to-references)
-;; 	file-name))
-
-;; (defun org-zk-create-note-and-add-link (note)
-;;   "Create a new NOTE and add the link to the content of the `Refereces' section of this note."
-;;   (interactive "sCreate note and link to: ")
-;;   (org-zk--create-note-and-add-link note))
-
-;; (defun org-zk-create-note-and-insert-link (note)
-;;   "Create a new NOTE and insert the link in the note and to the content of the `Refereces' section of this note."
-;;   (interactive "sCreate note and link to: ")
-;;   (let ((note-path (org-zk--create-note-and-add-link note)))
-;; 	(insert (concat "[[" note-path "][" note "]]"))))
 
 ;; ;;;;; this is for adding existing files to the database
 ;; (require 'cl-lib)
