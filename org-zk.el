@@ -45,6 +45,11 @@
 	"All zettels are in this directory."
 	:type 'directory
 	:group 'org-zk)
+  
+  (defcustom org-zk-main-index-file (concat org-zk-directory "index.org")
+	"The main index file that link to all other subject-specific index files."
+	:type 'file
+	:group 'org-zk)
 
   (defcustom org-zk-link-type-prefix-alist
 	'(("<:" . :folge-prev) (">:" . :folge-next))
@@ -57,29 +62,68 @@
 (require 'org-zk-gather)
 (require 'ivy)
 
-;; Opening and creating notes
+;; -- Opening and creating notes
 
-(defun org-zk--new-note (title)
-  "Create a new zettel and open file in buffer.
-Returns the full path to the newly created file.
+(defun org-zk--create-new-note (title)
+  "Create a new zettel with TITLE and save to disk.
 
-TITLE will be the title of the note."
-  (let ((fname
-		 (concat org-zk-directory (format-time-string "%Y%m%d%H%M%S") ".org")))
-	(find-file fname)
-	(insert
-	 (format
-	  "#+title: %s\n#+startup: showall\n** Note\n\n\n** References\n\n** Sources\n\n"
-	  title))
+Return the file name of the zettel."
+  (let ((file-name (concat
+					org-zk-directory
+					(format-time-string "%Y%m%d%H%M%S")
+					".org")))
+	(with-temp-file file-name
+	  (insert (format
+			   "#+title: %s\n#+startup: showall\n** Note\n\n\n** References\n\n** Sources\n\n"
+			   title)))
+	file-name))
+
+(defun org-zk--create-new-note-and-open (title)
+  "Create a new zettel with TITLE and open the file in buffer."
+  (let ((file-name (org-zk--create-new-note title)))
+	(find-file file-name)
 	(goto-char (point-min))
 	(let ((inhibit-message t))
-	  (forward-line (1- 4)))
-	fname))
+	  (forward-line (1- 4)))))
 
-(defun org-zk-new-note ()
-  "Create a new zettel and open file in buffer."
+(defun org-zk-create-note-with-title (title)
+  "Create a new zettel with TITLE, but don't open the file."
+  (interactive "sTitle of the new zettel: ")
+  (org-zk--create-new-note title))
+
+(defun org-zk-create-empty-note-and-open ()
+  "Create an empty zettel and open file in buffer."
   (interactive)
-  (org-zk--new-note ""))
+  (org-zk--create-new-note-and-open ""))
+
+(defun org-zk-create-note-with-title-and-open (title)
+  "Create a new zettel with TITLE and open file in buffer."
+  (interactive "sTitle of the new zettel: ")
+  (org-zk--create-new-note-and-open title))
+
+(defun org-zk-open-note ()
+  "Open an existing zettel in current buffer."
+  (interactive)
+  (ivy-read "Open note: " #'org-zk--ivy-notes-list
+			:action (lambda (title)
+					  (let ((path (get-text-property 0 'file-name title)))
+						(find-file path)))))
+
+(defun org-zk--prune-notes-without-titles ()
+  "Delete all notes that contain no titles."
+  (let ((all-files (seq-filter #'file-regular-p (directory-files org-zk-directory t))))
+	(mapc (lambda (file)
+			(let ((title (org-zk--title-of-note-in-file file)))
+			  (when (string= title "")
+				(delete-file file))))
+		  all-files)))
+
+(defun org-zk-prune-notes-without-titles ()
+  "Delete all notes that contain no titles."
+  (interactive)
+  (org-zk--prune-notes-without-titles))
+
+;; -- Ivy helpers
 
 (defun org-zk--all-notes-filenames ()
   "Return a list of tuples with (note-title note-filename) as contents.
@@ -97,15 +141,8 @@ This function has the same output structure as org-zk-db--all-notes-filenames."
 						'file-name (nth 1 title-filename)))
 		  (org-zk--all-notes-filenames)))
 
-(defun org-zk-open-note ()
-  "Open an existing zettel in current buffer."
-  (interactive)
-  (ivy-read "Open note: " #'org-zk--ivy-notes-list
-			:action (lambda (title)
-					  (let ((path (get-text-property 0 'file-name title)))
-						(find-file path)))))
 
-;; Links between notes
+;; -- Links between notes
 
 (defun org-zk--insert-link-in-ast (ast path description)
   "Provided an `org-mode' AST, insert link to PATH with DESCRIPTION.
@@ -127,7 +164,7 @@ the link to the headline content in the org-element AST."
 							  ,description) "\n")))
 		ast)))
 
-(defun org-zk--insert-link-in-buffer (buffer path description)
+(defun org-zk--add-link-in-buffer (buffer path description)
   "Insert link to PATH with DESCRIPTION in buffer containing contents from FILENAME.
 
 The link is inserted under the `References' headline by appending
@@ -142,7 +179,7 @@ the link to the headline content in the org-element AST."
 		(replace-buffer-contents tmp-buffer)
 		(kill-buffer tmp-buffer)))))
 
-(defun org-zk--insert-link-in-file (filename path description)
+(defun org-zk--add-link-in-file (filename path description)
   "Insert link to PATH with DESCRIPTION in FILENAME.
 
 The link is inserted under the `References' headline by appending the link
@@ -152,51 +189,93 @@ to the headline content in the org-element AST."
 				(org-zk--org-element-parse-file filename) path description)))
 	  (insert (org-element-interpret-data ast)))))
 
-(defun org-zk--insert-link-in-file-or-buffer (filename path description)
+(defun org-zk--add-link-in-file-or-buffer (filename path description)
   "Insert link to PATH with DESCRIPTION in FILENAME, whether the file is open in a buffer or not.
 
 The link is inserted under the `References' headline by appending
 the link to the headline content in the org-element AST."
   (let ((buffer (find-buffer-visiting filename)))
 	(if buffer
-		(org-zk--insert-link-in-buffer buffer path description)
-	  (org-zk--insert-link-in-file filename path description))))
+		(org-zk--add-link-in-buffer buffer path description)
+	  (org-zk--add-link-in-file filename path description))))
+
+(defun org-zk--link-this-and-that-note
+	(this-note that-note &optional this-note-prefix that-note-prefix)
+  "Add a link from THIS-NOTE to THAT-NOTE and vice versa.
+
+THIS-NOTE and THAT-NOTE are full paths to the notes.
+THIS-NOTE-PREFIX and THAT-NOTE-PREFIX prefixes the respective descriptions."
+  (progn
+	(org-zk--add-link-in-file-or-buffer
+	 this-note that-note
+	 (concat that-note-prefix (org-zk--title-of-note-in-file that-note)))
+	(org-zk--add-link-in-file-or-buffer
+	 that-note this-note
+	 (concat this-note-prefix (org-zk--title-of-note-in-file this-note)))))
+
+(defun org-zk--insert-inline-link-to-note (note &optional description-prefix)
+  "Insert a link, inline in the current note, to NOTE.
+
+NOTE is the full path to the note."
+  (insert
+   (concat "[[" (file-name-nondirectory note) "]["
+		   (concat description-prefix (org-zk--title-of-note-in-file note)) "]]")))
 
 (defun org-zk--link-prefix-from-link-type (link-type)
   "Return link prefix if LINK-TYPE exists, otherwise return nil."
   (car (rassq link-type org-zk-link-type-prefix-alist)))
 
-(defun org-zk--insert-backlink (&optional link-type backlink-type ivy-prompt-text)
+(defun org-zk--add-backlink-to-references (&optional link-type backlink-type ivy-prompt-text)
   "Insert link to note, and also insert a backnote to the current note.
+If the note doesn't already exist, create it before linking with it.
 
 Optionally, specify a LINK-TYPE, a BACKLINK-TYPE and an IVY-PROMPT-TEXT."
   (let* ((this-path (concat
 					 org-zk-directory
 					 (file-name-nondirectory (buffer-file-name))))
-		 (link-prefix (org-zk--link-prefix-from-link-type link-type))
-		 (backlink-prefix (org-zk--link-prefix-from-link-type backlink-type))
-		 (desc (concat backlink-prefix
-					   (or (org-zk--title-of-note-in-current-buffer) this-path)))
+		 (this-prefix (org-zk--link-prefix-from-link-type backlink-type))
+		 (that-prefix (org-zk--link-prefix-from-link-type link-type))
 		 (prompt (or ivy-prompt-text "Link with: ")))
 	(ivy-read prompt #'org-zk--ivy-notes-list
 			  :action (lambda (title)
-						(let* ((link-path (get-text-property 0 'file-name title))
-							   (file-name (file-name-nondirectory link-path)))
-						  (org-zk--insert-link-in-file link-path this-path desc)
-						  (insert (concat
-								   "[[file:" file-name "][" link-prefix title "]]")))))))
+						(let* ((that-path (or (get-text-property 0 'file-name title)
+											  (org-zk--create-new-note title))))
+						  (org-zk--link-this-and-that-note
+						   this-path that-path
+						   this-prefix that-prefix))))))
 
-(defun org-zk-insert-backlink ()
+(defun org-zk-insert-backlink (&optional link-type backlink-type ivy-prompt-text)
+  "Add backlink to the references section of the note, as well as in the note itself.
+If the note doesn't already exist, create it before linking with it.
+
+Optionally, specify a LINK-TYPE, a BACKLINK-TYPE and an IVY-PROMPT-TEXT."
+  (interactive)
+  (let* ((this-path (concat
+					 org-zk-directory
+					 (file-name-nondirectory (buffer-file-name))))
+		 (this-prefix (org-zk--link-prefix-from-link-type backlink-type))
+		 (that-prefix (org-zk--link-prefix-from-link-type link-type))
+		 (prompt (or ivy-prompt-text "Link with: ")))
+	(ivy-read prompt #'org-zk--ivy-notes-list
+			  :action (lambda (title)
+						(let* ((that-path (or (get-text-property 0 'file-name title)
+											  (org-zk--create-new-note title))))
+						  (org-zk--link-this-and-that-note
+						   this-path that-path
+						   this-prefix that-prefix)
+						  (org-zk--insert-inline-link-to-note that-path that-prefix))))))
+
+(defun org-zk-add-backlink-to-references ()
   "Select note from list, and insert link/backlink to/from that note."
   (interactive)
-  (org-zk--insert-backlink))
+  (org-zk--add-backlink-to-references))
 
-(defun org-zk-insert-folge-backlink ()
+(defun org-zk-add-folge-backlink-to-references ()
   "Select note from list, and insert link/backlink to/from that note.
 
 Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
-  (org-zk--insert-backlink :folge-prev :folge-next "Follow note: "))
+  (org-zk--add-backlink-to-references :folge-prev :folge-next "Follow note: "))
 
 ;; Index files
 
@@ -205,14 +284,36 @@ Link descriptions are prefixed by `<:' and `>:' respectively"
 
 SUBJECT is the name of the subject."
   (interactive "sCreate index for which subject? ")
-  (let* ((this-index-name (format "Index - %s" subject))
-		 (main-index-file (concat org-zk-directory "index.org"))
+  (let* ((this-index-name (format "%s -- Index" subject))
+		 (main-index-file org-zk-main-index-file)
 		 (this-index-file (org-zk--new-note this-index-name)))
-	(org-zk--insert-link-in-file-or-buffer
+	(when (not (file-exists-p main-index-file))
+	  (org-zk--new-note "Index"))
+	(org-zk--add-link-in-file-or-buffer
 	 main-index-file
 	 this-index-file
-	 (format "Index - %s" subject))
-	))
+	 this-index-name)
+	(org-zk--add-link-in-file-or-buffer
+	 this-index-file
+	 main-index-file
+	 "Index")
+	(find-file this-index-file)))
+
+;; (defun org-zk--create-note-and-add-link (note-title)
+;;   (let ((file-name (org-zk--new-note note-title)))
+;; 	(org-zk--add-backlink-to-references)
+;; 	file-name))
+
+;; (defun org-zk-create-note-and-add-link (note)
+;;   "Create a new NOTE and add the link to the content of the `Refereces' section of this note."
+;;   (interactive "sCreate note and link to: ")
+;;   (org-zk--create-note-and-add-link note))
+
+;; (defun org-zk-create-note-and-insert-link (note)
+;;   "Create a new NOTE and insert the link in the note and to the content of the `Refereces' section of this note."
+;;   (interactive "sCreate note and link to: ")
+;;   (let ((note-path (org-zk--create-note-and-add-link note)))
+;; 	(insert (concat "[[" note-path "][" note "]]"))))
 
 ;; ;;;;; this is for adding existing files to the database
 ;; (require 'cl-lib)
