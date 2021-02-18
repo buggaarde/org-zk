@@ -57,10 +57,10 @@
 	:type '(alist :key-type string :value-type keyword)
 	:group 'org-zk))
 
-(require 'org-zk-common)
 (require 'org-zk-db)
 (require 'org-zk-gather)
 (require 'ivy)
+(require 'seq)
 
 ;; -- Helpers for note content
 
@@ -185,6 +185,39 @@ This function has the same output structure as org-zk-db--all-notes-filenames."
 
 ;; -- Links between notes
 
+(defun org-zk--all-links-in-ast (ast)
+  "Return all links under the `References' headline in the provided AST."
+  (let* ((refs (org-zk--org-headline-by-name ast "References"))
+		 (links (org-element-map refs 'link #'identity)))
+	(mapcar #'org-element-extract-element links)))
+
+(defun org-zk--all-links-in-file (filename)
+  "Return all links under the `References' headline in the file given by FILENAME."
+  (let ((ast (org-zk--org-element-parse-file filename)))
+	(org-zk--all-links-in-ast ast)))
+
+(defun org-zk--all-links-in-buffer (buffer)
+  "Return all links under the `References' headline in BUFFER."
+  (with-current-buffer buffer
+	(let ((ast (org-element-parse-buffer)))
+	  (org-zk--all-links-in-ast ast))))
+
+(defun org-zk--all-links-in-file-or-buffer (filename)
+  "Return all links in the FILENAME, even if the file as already open in a buffer."
+  (let ((buffer (find-buffer-visiting filename)))
+	(if buffer
+		(org-zk--all-links-in-buffer buffer)
+	  (org-zk--all-links-in-filename filename))))
+
+(defun org-zk--link-exists-in-file-or-buffer? (link-path filename)
+  "Return non-nil if LINK-PATH already exists in the note in FILENAME, and nil otherwise."
+  (let* ((link-paths (mapcar
+					  (lambda (link) (org-element-property :path link))
+					 (org-zk--all-links-in-file-or-buffer filename)))
+		 (link-path-nondirectory (file-name-nondirectory link-path))
+		 (path (concat org-zk-directory link-path-nondirectory)))
+	(seq-contains link-paths path)))
+
 (defun org-zk--insert-link-in-ast (ast path description)
   "Provided an `org-mode' AST, insert link to PATH with DESCRIPTION.
 Return the modified AST.
@@ -235,10 +268,11 @@ to the headline content in the org-element AST."
 
 The link is inserted under the `References' headline by appending
 the link to the headline content in the org-element AST."
-  (let ((buffer (find-buffer-visiting filename)))
-	(if buffer
-		(org-zk--add-link-in-buffer buffer path description)
-	  (org-zk--add-link-in-file filename path description))))
+  (unless (org-zk--link-exists-in-file-or-buffer? path filename)
+	(let ((buffer (find-buffer-visiting filename)))
+	  (if buffer
+		  (org-zk--add-link-in-buffer buffer path description)
+		(org-zk--add-link-in-file filename path description)))))
 
 (defun org-zk--link-this-and-that-note
 	(this-note that-note &optional this-note-prefix that-note-prefix)
@@ -328,9 +362,9 @@ SUBJECT is the name of the subject."
   (interactive "sCreate index for which subject? ")
   (let* ((this-index-name (format "%s -- Index" subject))
 		 (main-index-file org-zk-main-index-file)
-		 (this-index-file (org-zk--new-note this-index-name)))
+		 (this-index-file (org-zk--create-new-note this-index-name)))
 	(when (not (file-exists-p main-index-file))
-	  (org-zk--new-note "Index"))
+	  (org-zk--create-new-note "Index"))
 	(org-zk--add-link-in-file-or-buffer
 	 main-index-file
 	 this-index-file

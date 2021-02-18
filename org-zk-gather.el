@@ -1,7 +1,6 @@
 ;; -*- lexical-binding: t; -*-
 
 (require 'cl-lib)
-(require 'org-zk-common)
 
 (defun org-zk--insert-note-from-file (buffer filename)
   "Insert note from FILENAME into BUFFER. 
