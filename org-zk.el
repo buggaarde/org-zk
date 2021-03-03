@@ -471,6 +471,28 @@ SUBJECT is the name of the subject."
 	 "Index")
 	(find-file this-index-file)))
 
+;; -- org-zk minor mode
+
+(defun org-zk--update-notes ()
+  "Update link descriptions, etc."
+  (progn
+	(org-zk--update-all-links-to-this-note)))
+
+(defun org-zk-update-notes ()
+  "When in the `org-zk-directory', update links, etc."
+  (let ((directory (file-name-directory (buffer-file-name))))
+	(when (string= directory org-zk-directory)
+	  (org-zk--update-notes))))
+
+;;;###autoload
+(define-minor-mode org-zk-mode
+  "A minor mode to track updates in your zettelkasten."
+  :lighter " org-zk"
+  (add-hook 'before-save-hook #'org-zk-update-notes nil t))
+
+;;;###autoload
+(add-hook 'org-mode-hook #'org-zk-mode)
+
 ;; ;;;;; this is for adding existing files to the database
 ;; (require 'cl-lib)
 
