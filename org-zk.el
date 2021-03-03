@@ -62,7 +62,13 @@
 (require 'ivy)
 (require 'seq)
 
-;; -- Helpers for note content
+
+;; -- AST manipulation and getters
+
+(defun org-zk--org-element-parse-buffer (buffer)
+  "Return the result from `org-element-parse-buffer' on BUFFER."
+  (with-current-buffer buffer
+	(org-element-parse-buffer)))
 
 (defun org-zk--org-element-parse-file (filename)
   "Open FILENAME in temp buffer, and call org-element-parse-buffer.
@@ -72,6 +78,42 @@ Return the resulting org-element AST."
 	  (org-mode)
 	  (insert-file-contents filename)
 	  (org-element-parse-buffer))))
+
+(defun org-zk--org-element-parse-file-or-buffer (filename)
+  "Return the `org-element' ast in FILENAME, whether or not it's already open in a buffer."
+  (let ((buffer (find-buffer-visiting filename)))
+	(if buffer (org-zk--org-element-parse-buffer buffer)
+	  (org-zk--org-element-parse-file filename))))
+
+(defun org-zk--all-links-in-ast (ast)
+  "Return all links under the `References' headline in the provided AST."
+  (let* ((refs (org-zk--org-headline-by-name ast "References"))
+		 (links (org-element-map refs 'link #'identity)))
+	(mapcar #'org-element-extract-element links)))
+
+(defun org-zk--replace-ast-in-buffer (buffer new-ast)
+  "In BUFFER, replace the current ast with NEW-AST."
+  (with-current-buffer buffer
+	(let ((tmp-buffer (generate-new-buffer " *org-zk-tmp-buffer")))
+	  (save-excursion
+		;; This trick with tmp-buffers is necessary for save-excursion to work.
+		;; If we don't, the point isn't saved when we clear the buffer.
+		(with-current-buffer tmp-buffer
+		  (insert (org-element-interpret-data new-ast)))
+		(replace-buffer-contents tmp-buffer)
+		(kill-buffer tmp-buffer)))))
+
+(defun org-zk--replace-ast-in-file (filename new-ast)
+  "In FILENAME, replace current ast with NEW-AST."
+  (with-temp-file filename
+	(insert (org-element-interpret-data new-ast))))
+
+(defun org-zk--replace-ast-in-file-or-buffer (filename new-ast)
+  "Replace current ast with NEW-AST in file or buffer given by FILENAME."
+  (let ((buffer (find-buffer-visiting filename)))
+	(if buffer (org-zk--replace-ast-in-buffer buffer new-ast)
+	  (org-zk--replace-ast-in-file filename new-ast))))
+
 
 (defun org-zk--title-of-note-in-current-buffer ()
   "Return the value of the #+TITLE in current buffer.
