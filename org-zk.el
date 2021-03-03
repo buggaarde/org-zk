@@ -398,6 +398,56 @@ Link descriptions are prefixed by `<:' and `>:' respectively"
   (interactive)
   (org-zk--add-backlink-to-references :folge-prev :folge-next "Follow note: "))
 
+(defun org-zk--rename-link-description-in-ast (ast path new-description)
+  "In AST, replace the description in the links to PATH with NEW-DESCRIPTION."
+  (let ((links (org-element-map ast 'link
+				 (lambda (l)
+				   (when (string= (org-element-property :path l) path)
+					 l)))))
+	(mapc (lambda (link)
+			(let ((post-blank (org-element-property :post-blank link)))
+			  (org-element-set-element
+			   link `(link (:type "file" :path ,path :format bracket :post-blank ,post-blank)
+						   ,new-description))))
+		  links)
+	ast))
+
+(defun org-zk--rename-link-description-in-file-or-buffer (filename path new-description)
+  "In FILENAME, replace the description in the links to PATH with NEW-DESCRIPTION."
+  (let* ((ast (org-zk--org-element-parse-file-or-buffer filename))
+		 (new-ast (org-zk--rename-link-description-in-ast ast path new-description)))
+	(org-zk--replace-ast-in-file-or-buffer filename new-ast)))
+
+(defun org-zk--rename-all-backlinks-to-this-note (new-name)
+  "Find all links to this note and replace the description with NEW-NAME."
+  (let* ((this-note (buffer-file-name))
+		 (all-links-to-this-note (org-zk--all-links-in-file this-note))
+		 (all-paths (mapcar
+					 (lambda (link) (org-element-property :path link))
+					 all-links-to-this-note)))
+	(mapc (lambda (path) (org-zk--rename-link-description-in-file-or-buffer
+						  path this-note new-name))
+		  all-paths)))
+
+(defun org-zk--update-all-links-to-this-note ()
+  "Update all descriptions to links to this note, so that it'll match the current title."
+  (let ((title (org-zk--title-of-note-in-current-buffer)))
+	(org-zk--rename-all-backlinks-to-this-note title)))
+
+(defun org-zk-update-all-links-to-this-note ()
+  "Update all descriptions to links to this note, so that it'll match the current title."
+  (interactive)
+  (org-zk--update-all-links-to-this-note))
+
+;; THIS DELETES ALL LINKS IN THE CURRENT FORM
+;; (defun org-zk--normalize-all-links ()
+;;   "Make sure that all paths are prefixed with the full path to the note."
+;;   (let ((filenames (seq-filter #'file-regular-p (directory-files org-zk-directory t))))
+;; 	(mapc (lambda (filename)
+;; 			(let* ((ast (org-zk--org-element-parse-file-or-buffer filename))
+;; 				  (new-ast (org-zk--normalize-links-in-ast ast)))
+;; 			  (org-zk--replace-ast-in-file-or-buffer filename new-ast)))
+;; 		  filenames)))
 
 ;; Index files
 
