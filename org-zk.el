@@ -164,9 +164,7 @@ Return the file name of the zettel."
   "Create a new zettel with TITLE and open the file in buffer, with point at the beginning of the **Note section."
   (let ((file-name (org-zk--create-new-note title)))
 	(find-file file-name)
-	(goto-char (point-min))
-	(let ((inhibit-message t))
-	  (forward-line (1- 4)))))
+	(goto-char (+ (point-min) 8))))
 
 (defun org-zk-create-note-with-title (title)
   "Create a new zettel with TITLE, but don't open the file."
