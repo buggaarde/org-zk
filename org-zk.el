@@ -187,7 +187,13 @@ Return the file name of the zettel."
   (ivy-read "Open note: " #'org-zk--ivy-notes-list
 			:action (lambda (title)
 					  (let ((path (get-text-property 0 'file-name title)))
-						(find-file path)))))
+						(if path (find-file path)
+						  ;; else create a new note with TITLE and put cursor in the NOTE section.
+						  (let ((path (org-zk--create-new-note title)))
+							(find-file path)
+							(goto-char (point-min))
+							(let ((inhibit-message t))
+							  (forward-line (1- 4)))))))))
 
 (defun org-zk--prune-notes-without-titles ()
   "Delete all notes that contain no titles."
