@@ -231,12 +231,6 @@ This function has the same output structure as org-zk-db--all-notes-filenames."
 
 ;; -- Links between notes
 
-(defun org-zk--all-links-in-ast (ast)
-  "Return all links under the `References' headline in the provided AST."
-  (let* ((refs (org-zk--org-headline-by-name ast "References"))
-		 (links (org-element-map refs 'link #'identity)))
-	(mapcar #'org-element-extract-element links)))
-
 (defun org-zk--all-links-in-file (filename)
   "Return all links under the `References' headline in the file given by FILENAME."
   (let ((ast (org-zk--org-element-parse-file filename)))
@@ -253,7 +247,7 @@ This function has the same output structure as org-zk-db--all-notes-filenames."
   (let ((buffer (find-buffer-visiting filename)))
 	(if buffer
 		(org-zk--all-links-in-buffer buffer)
-	  (org-zk--all-links-in-filename filename))))
+	  (org-zk--all-links-in-file filename))))
 
 (defun org-zk--link-exists-in-file-or-buffer? (link-path filename)
   "Return non-nil if LINK-PATH already exists in the note in FILENAME, and nil otherwise."
@@ -339,7 +333,7 @@ THIS-NOTE-PREFIX and THAT-NOTE-PREFIX prefixes the respective descriptions."
 
 NOTE is the full path to the note."
   (insert
-   (concat "[[" (file-name-nondirectory note) "]["
+   (concat "[[" (concat org-zk-directory (file-name-nondirectory note)) "]["
 		   (concat description-prefix (org-zk--title-of-note-in-file note)) "]]")))
 
 (defun org-zk--link-prefix-from-link-type (link-type)
