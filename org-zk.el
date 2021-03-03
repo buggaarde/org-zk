@@ -471,6 +471,27 @@ SUBJECT is the name of the subject."
 	 "Index")
 	(find-file this-index-file)))
 
+
+;; -- save all notes
+
+(defun org-zk--save-all-notes ()
+  "Save all notes."
+  (let ((save-some-buffers-default-predicate
+		 (lambda ()
+		   (string=
+			(file-name-directory (buffer-file-name))
+			org-zk-directory))))
+	;; save twice to make sure that any changes to titles due to a save-hook
+	;; is properly saved to disk.
+	(save-some-buffers t)
+	(save-some-buffers t)))
+
+(defun org-zk-save-all-notes ()
+  "Save all notes."
+  (interactive)
+  (org-zk--save-all-notes))
+
+
 ;; -- org-zk minor mode
 
 (defun org-zk--update-notes ()
