@@ -24,23 +24,51 @@ and can be listed inline in the note itself --
 but are also automatically listed in their respective sections as well,
 when the provided ~org-zk~ functions are used to insert links.
 
-** Linking notes
+** Features
+*** Unique note identifiers and descriptive titles
 
-Links between notes are always bi-directional,
-and by adding a link from one note to another, a link from the former will be added automatically to the References section of the former.
-
-** Unique note identifiers
+Create and open notes with ~org-zk-create-empty-note-and-open~ and ~org-zk-open-note~.
 
 The file itself will be named after the datetime at creation,
 and will therefore be unique.
 To open a note by it's title, instead of ~find-file~ use ~org-zk-open-note~,
 which will list all notes by their ~#+title~ attribute.
 
-** Functions
-| Function                            | Suggested binding | Description                                                                                                                                                                                        |
-|-------------------------------------+-------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ~org-zk-create-empty-note-and-open~ | ~C-c z n~         | Create and open a new empty note, and place cursor after the ~#+title:~ attribute.                                                                                                                 |
-| ~org-zk-open-note~                  | ~C-c z o~         | List all existing notes with ~ivy~ and open the selected note. If a note title that doesn't already exist is selected, create a note with the selected title before opening.                       |
-| ~org-zk-add-backlink-to-references~ | ~C-c z b~         | List all notes and add a link to the selected to the References section of the note. If a note title that doesn't already exist is selected, create a note with the selected titel before linking. |
-| ~org-zk-insert-backlink~            | ~C-c z l~         | The same as ~org-zk-add-backlink-to-references~ above, except also add the link inline in the note.                                                                                                |
-|                                     |                   |                                                                                                                                                                                                    |
+When you invoke ~org-zk-open-note~, if you select a note title that doesn't already exist,
+a new note with the selected title is created before opening it.
+
+*** Linking notes
+
+Link notes with ~org-zk-add-backlink-to-references~ and ~org-zk-insert-backlink~.
+
+Both functions will prompt the user for a note to link to.
+They will add the link to the ~References~ section of the note.
+Use ~org-zk-insert-backlink~ when you also want to add the link inline in the body of the ~Note~ section.
+
+Links between notes are always bi-directional,
+and when you add a link from one note to another, a link from the former will be added automatically to the ~References~ section of the former.
+
+With both ~org-zk-add-backlink-to-references~ and ~org-zk-insert-backlink~,
+if you select a note title that doesn't already exist,
+a new note with the selected title is created, before linking to it.
+
+*** Automatic update of link descriptions when a note ~#+title~ changes
+
+Since notes are often works in progress, the note ~#+title~ sometimes need to change.
+
+Invoke ~org-zk-update-all-links-to-this-note~ to update all backlinks to the current note,
+and update all link descriptions to now show the current ~#+title~.
+
+By default, a save-hook is added to the ~org-zk~ minor-mode that watches for any ~#+title~ changes,
+and calls ~org-zk-update-all-links-to-this-note~ before saving.
+
+**** Save twice when saving all notes
+
+Since a save-hook automatically updates any ~#+title~ changes,
+calling ~save-some-buffers~ on multiple notes with changed titles,
+will leave un-saved changes due to the update.
+To save these updates, ~save-some-buffers~ has to be called a second time,
+which is slightly inconvenient.
+
+Invoke ~org-zk-save-all-notes~ to automatically call ~save-some-buffers~ twice, only on ~org-zk~ notes.
+
