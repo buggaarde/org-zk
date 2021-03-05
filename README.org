@@ -1,2 +1,46 @@
 * org-zk -- Zettelkasten in org-mode
+  
+Provides a zettelkasten workflow similar to the experience of Lühmann.
 
+** The basics
+   
+A note is an org-mode file with the following structure
+#+begin_src org
+  ,#+title: Your note title here
+  ,#+startup: showall
+  ,** Note
+
+  ,** References
+
+  ,** Sources
+
+#+end_src
+
+The actual contents of the note goes into the ~Note~ section;
+any reference to other notes are listed in the ~References~ section,
+and external sources are listed in the ~Sources~ section.
+References and sources are normal org-mode links,
+and can be listed inline in the note itself --
+but are also automatically listed in their respective sections as well,
+when the provided ~org-zk~ functions are used to insert links.
+
+** Linking notes
+
+Links between notes are always bi-directional,
+and by adding a link from one note to another, a link from the former will be added automatically to the References section of the former.
+
+** Unique note identifiers
+
+The file itself will be named after the datetime at creation,
+and will therefore be unique.
+To open a note by it's title, instead of ~find-file~ use ~org-zk-open-note~,
+which will list all notes by their ~#+title~ attribute.
+
+** Functions
+| Function                            | Suggested binding | Description                                                                                                                                                                                        |
+|-------------------------------------+-------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~org-zk-create-empty-note-and-open~ | ~C-c z n~         | Create and open a new empty note, and place cursor after the ~#+title:~ attribute.                                                                                                                 |
+| ~org-zk-open-note~                  | ~C-c z o~         | List all existing notes with ~ivy~ and open the selected note. If a note title that doesn't already exist is selected, create a note with the selected title before opening.                       |
+| ~org-zk-add-backlink-to-references~ | ~C-c z b~         | List all notes and add a link to the selected to the References section of the note. If a note title that doesn't already exist is selected, create a note with the selected titel before linking. |
+| ~org-zk-insert-backlink~            | ~C-c z l~         | The same as ~org-zk-add-backlink-to-references~ above, except also add the link inline in the note.                                                                                                |
+|                                     |                   |                                                                                                                                                                                                    |
